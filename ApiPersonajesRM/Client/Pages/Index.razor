@@ -1,0 +1,129 @@
+﻿@page "/"
+@using ApiPersonajesRM.Shared.Models
+@using Newtonsoft.Json
+@inject HttpClient client
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+
+<PageTitle>Index</PageTitle>
+
+<h1>Rick y Morty Personajes</h1>
+
+<nav class="navbar navbar-light bg-light">
+    <form class="form-inline d-flex" onsubmit="return false;">
+        <input class="form-control m-1" type="search" placeholder="Buscar personaje" @bind="searchQuery" aria-label="Search">
+        <button class="btn btn-info m-1" @onclick="buscarPersonaje">
+            <i class="bi bi-search"></i> <!-- Icono de lupa -->
+        </button>
+    </form>
+</nav>
+
+@if (IsLoading)
+{
+    <div class="spinner-border" role="status">
+        <span class="visually-hidden">Cargando...</span>
+    </div>
+
+}
+else if (characters is null)
+{
+    <p>Empty</p>
+}
+else if (characters.results.Count == 0)
+{
+    <p>No hay datos!</p>
+}
+else
+{
+    <!-- Aquí va el resto de tu código para mostrar los personajes -->
+    <div class="row">
+        @foreach (var character in characters.results)
+        {
+            <div class="col mt-3">
+                <div class="card">
+                    <img src="@character.image" class="card-img-top" alt="No image">
+                    <div class="card-body">
+                        <p class="card-text"><strong>@character.name</strong></p>
+                        <p class="card-text"><strong>@character.origin.name</strong></p>
+                        <p class="card-text"><strong>@character.location.name</strong></p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <style>
+        .pointer-cursor{
+            cursor: pointer;
+        }
+    </style>
+
+    <div class="mt-5">
+        <nav aria-label="Page navigation example">
+            <div style="text-align:center">
+                Página @Page de @characters.info.pages
+                <strong>Artículos @(characters.results.Count * Page)</strong> de <strong>@(characters.info.count)</strong>
+            </div>
+            <ul class="pagination">
+                <li class="page-item @(Page == 1 ? " disabled " : "")">
+                    <a class="page-link pointer-cursor" @onclick="@(() => onPage(Page - 1))">Anterior</a>
+                </li>
+                <li class="page-item @(Page == characters.info.pages ? " disabled " : "")">
+                    <a class="page-link pointer-cursor" @onclick="@(() => onPage(Page + 1))">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+}
+
+
+@code {
+    public Characters characters { get; set; } = null;
+    public int Page { get; set; }
+    public string searchQuery { get; set; } = "";
+    public bool IsLoading { get; set; } = false; //indicador de carga
+
+    protected override Task OnInitializedAsync()
+    {
+        Page = 1;
+        GetCharacters();
+        return base.OnInitializedAsync();
+    }
+
+    private void onPage(int page)
+    {
+        Page = page;
+        GetCharacters();
+    }
+
+    private async void GetCharacters()
+    {
+
+        IsLoading = true; // Comienza a cargar
+        StateHasChanged(); // Actualiza la UI para mostrar el indicador
+
+        try
+        {
+            var response = await client.GetAsync($"api/characters/all?page={Page}&name={searchQuery}");
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync();
+                characters = JsonConvert.DeserializeObject<Characters>(responseBody);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            IsLoading = false; //finaliza la carga
+            StateHasChanged(); // actualiza la ui nuevamente
+        }
+    }
+
+    private void buscarPersonaje()
+    {
+        GetCharacters(); // Ejecuta la búsqueda cuando el botón de buscar es presionado
+    }
+}
